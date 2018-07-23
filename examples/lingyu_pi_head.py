@@ -40,29 +40,7 @@ def postprocessing(result):
     #roll_vector = np.multiply(roll_raw, 25.0) #cnn-out is in range [-1, +1] --> [-45, + 45]
 
     return roll, pitch,yaw
-def eulerAnglesToRotationMatrix(theta) :
-     
-    R_x = np.array([[1,         0,                  0                   ],
-                    [0,         math.cos(theta[0]), -math.sin(theta[0]) ],
-                    [0,         math.sin(theta[0]), math.cos(theta[0])  ]
-                    ])
-         
-         
-                     
-    R_y = np.array([[math.cos(theta[1]),    0,      math.sin(theta[1])  ],
-                    [0,                     1,      0                   ],
-                    [-math.sin(theta[1]),   0,      math.cos(theta[1])  ]
-                    ])
-                 
-    R_z = np.array([[math.cos(theta[2]),    -math.sin(theta[2]),    0],
-                    [math.sin(theta[2]),    math.cos(theta[2]),     0],
-                    [0,                     0,                      1]
-                    ])
-                     
-                     
-    R = np.dot(R_z, np.dot( R_y, R_x ))
- 
-    return R
+
 def proj(roll, pitch, yaw):
     c_x = 1232 / 2
     c_y = 1640 / 2
@@ -75,19 +53,35 @@ def proj(roll, pitch, yaw):
                                    [0.0, 0.0, 1.0] ])
 
     print("Estimated camera matrix: \n" + str(camera_matrix) + "\n")
-    alpha, beta, gamma = pitch*(np.pi/180), roll*(np.pi/180), yaw*(np.pi/180)
-    origin, xaxis, yaxis, zaxis = [0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]
-    I = identity_matrix()
-    Rx = rotation_matrix(alpha, xaxis)
-    Ry = rotation_matrix(beta, yaxis)
-    Rz = rotation_matrix(gamma, zaxis)
-    rvec = concatenate_matrices(Rx, Ry, Rz)
     axis = numpy.float32([[50,0,0],[0,50,0],[0,0,50]])
     camera_distortion = numpy.float32([0.0, 0.0, 0.0, 0.0, 0.0])
-    tvec=(0,0,0)
+    tvec = np.array([0.0, 0.0, 1.0], np.float) # translation vector
+    rot_matrix = euler2rotmat(roll*(np.pi/180),pitch*(np.pi/180),-yaw*(np.pi/180))
+    rvec, jacobian = cv2.Rodrigues(rot_matrix)
     imgpts, jac = cv2.projectPoints(axis, rvec, tvec, camera_matrix, camera_distortion)
+    
+    
     location = tuple(imgpts[1].ravel()),tuple(imgpts[2].ravel()),tuple(imgpts[0].ravel())
     return location
+#Function used to get the rotation matrix
+def euler2rotmat(roll, pitch,yaw):
+    ch = np.cos(z)
+    sh = np.sin(z)
+    ca = np.cos(y)
+    sa = np.sin(y)
+    cb = np.cos(x)
+    sb = np.sin(x)
+    rot = np.zeros((3,3), 'float32')
+    rot[0][0] = ch * ca
+    rot[0][1] = sh*sb - ch*sa*cb
+    rot[0][2] = ch*sa*sb + sh*cb
+    rot[1][0] = sa
+    rot[1][1] = ca * cb
+    rot[1][2] = -ca * sb
+    rot[2][0] = -sh * ca
+    rot[2][1] = sh*sa*cb + ch*sb
+    rot[2][2] = -sh*sa*sb + ch*cb
+    return rot
 
 def transform(location,x0,y0):
 
